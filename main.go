@@ -20,6 +20,12 @@ type Config struct {
 	Tests []TestCase
 }
 
+type TestResult struct {
+	Desc   string
+	Error  string
+	Passed bool
+}
+
 func LoadConfig(filename string) Config {
 	yamlFile, err := ioutil.ReadFile(filename)
 	c := Config{}
@@ -64,12 +70,6 @@ func RunTest(test TestCase, results chan TestResult) {
 			Passed: true,
 		}
 	}
-}
-
-type TestResult struct {
-	Desc   string
-	Error  string
-	Passed bool
 }
 
 func main() {
