@@ -6,19 +6,31 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"net/http"
-	"os"
+	"strings"
 )
 
-type TestCase struct {
-	Desc   string
-	Path   string
-	Json   string
-	Status int
+type Header struct {
+	Name  string
+	Value string
 }
 
-type Config struct {
+type TestCase struct {
+	Desc    string
+	Path    string
+	Json    string
+	Status  int
+	Headers []Header
+}
+
+type TestSuiteConfig struct {
 	BaseURI string `yaml:"base_uri"`
-	Tests   []TestCase
+	Auth    string
+	Headers []Header
+}
+
+type TestSuite struct {
+	TestSuiteConfig `yaml:"config"`
+	Tests           []TestCase
 }
 
 type TestResult struct {
@@ -27,33 +39,49 @@ type TestResult struct {
 	Passed bool
 }
 
-func LoadConfig(filename string) Config {
+func loadTestSuite(filename string) TestSuite {
 	yamlFile, err := ioutil.ReadFile(filename)
-	c := Config{}
+	s := TestSuite{}
 
 	if err != nil {
 		fmt.Printf("yamlFile.Get err   #%v ", err)
 	}
-	err = yaml.Unmarshal(yamlFile, &c)
+	err = yaml.Unmarshal(yamlFile, &s)
 	if err != nil {
 		fmt.Printf("Unmarshal: %v", err)
 	}
 
-	return c
+	return s
 }
 
-func buildUrl(base, path string) string {
-	return fmt.Sprintf("%v%v", base, path)
+func (c TestSuiteConfig) HasAuth() bool {
+	return len(c.Auth) > 0
 }
 
-func (t TestCase) Run(baseURI string, results chan TestResult) {
-	req, err := http.NewRequest("POST", buildUrl(baseURI, t.Path), bytes.NewBuffer([]byte(t.Json)))
+func (c TestSuiteConfig) BasicAuth() (string, string) {
+	auth := strings.Split(c.Auth, ":")
+	return auth[0], auth[1]
+}
+
+func (c TestSuiteConfig) URL(path string) string {
+	return fmt.Sprintf("%v%v", c.BaseURI, path)
+}
+
+func (t TestCase) Run(c TestSuiteConfig, results chan TestResult) {
+	req, err := http.NewRequest("POST", c.URL(t.Path), bytes.NewBuffer([]byte(t.Json)))
 	if err != nil {
 		panic(err)
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/pdf")
-	req.SetBasicAuth(os.Getenv("USER"), os.Getenv("PASS"))
+	for _, h := range c.Headers {
+		req.Header.Set(h.Name, h.Value)
+	}
+	for _, h := range t.Headers {
+		req.Header.Set(h.Name, h.Value)
+	}
+	if c.HasAuth() {
+		user, pass := c.BasicAuth()
+		req.SetBasicAuth(user, pass)
+	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -78,10 +106,10 @@ func (t TestCase) Run(baseURI string, results chan TestResult) {
 }
 
 func main() {
-	config := LoadConfig("config.yml")
+	suite := loadTestSuite("suite.yml")
 	results := make(chan TestResult)
-	for _, test := range config.Tests {
-		go test.Run(config.BaseURI, results)
+	for _, test := range suite.Tests {
+		go test.Run(suite.TestSuiteConfig, results)
 	}
 
 	var failures []TestResult
@@ -95,7 +123,7 @@ func main() {
 			failures = append(failures, result)
 		}
 
-		if total == len(config.Tests) {
+		if total == len(suite.Tests) {
 			close(results)
 		}
 	}
