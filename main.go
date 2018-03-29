@@ -11,13 +11,14 @@ import (
 
 type TestCase struct {
 	Desc   string
-	URL    string
+	Path   string
 	Json   string
 	Status int
 }
 
 type Config struct {
-	Tests []TestCase
+	BaseURI string `yaml:"base_uri"`
+	Tests   []TestCase
 }
 
 type TestResult struct {
@@ -41,8 +42,12 @@ func LoadConfig(filename string) Config {
 	return c
 }
 
-func RunTest(test TestCase, results chan TestResult) {
-	req, err := http.NewRequest("POST", test.URL, bytes.NewBuffer([]byte(test.Json)))
+func buildUrl(base, path string) string {
+	return fmt.Sprintf("%v%v", base, path)
+}
+
+func (t TestCase) Run(baseURI string, results chan TestResult) {
+	req, err := http.NewRequest("POST", buildUrl(baseURI, t.Path), bytes.NewBuffer([]byte(t.Json)))
 	if err != nil {
 		panic(err)
 	}
@@ -57,12 +62,12 @@ func RunTest(test TestCase, results chan TestResult) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != test.Status {
+	if resp.StatusCode != t.Status {
 		body, _ := ioutil.ReadAll(resp.Body)
-		errorMessage := fmt.Sprintf("[FAIL] wanted %v got %v %v", test.Status, resp.StatusCode, string(body))
+		errorMessage := fmt.Sprintf("[FAIL] wanted %v got %v %v", t.Status, resp.StatusCode, string(body))
 		results <- TestResult{
 			Passed: false,
-			Desc:   test.Desc,
+			Desc:   t.Desc,
 			Error:  errorMessage,
 		}
 	} else {
@@ -76,7 +81,7 @@ func main() {
 	config := LoadConfig("config.yml")
 	results := make(chan TestResult)
 	for _, test := range config.Tests {
-		go RunTest(test, results)
+		go test.Run(config.BaseURI, results)
 	}
 
 	var failures []TestResult
