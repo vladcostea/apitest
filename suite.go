@@ -1,9 +1,8 @@
-package main
+package apitest
 
 import (
 	"bytes"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -37,21 +36,6 @@ type TestResult struct {
 	Desc   string
 	Error  string
 	Passed bool
-}
-
-func loadTestSuite(filename string) TestSuite {
-	yamlFile, err := ioutil.ReadFile(filename)
-	s := TestSuite{}
-
-	if err != nil {
-		fmt.Printf("yamlFile.Get err   #%v ", err)
-	}
-	err = yaml.Unmarshal(yamlFile, &s)
-	if err != nil {
-		fmt.Printf("Unmarshal: %v", err)
-	}
-
-	return s
 }
 
 func (c TestSuiteConfig) HasAuth() bool {
@@ -102,38 +86,5 @@ func (t TestCase) Run(c TestSuiteConfig, results chan TestResult) {
 		results <- TestResult{
 			Passed: true,
 		}
-	}
-}
-
-func main() {
-	suite := loadTestSuite("suite.yml")
-	results := make(chan TestResult)
-	for _, test := range suite.Tests {
-		go test.Run(suite.TestSuiteConfig, results)
-	}
-
-	var failures []TestResult
-	var total int
-	for result := range results {
-		total = total + 1
-		if result.Passed {
-			fmt.Print(".")
-		} else {
-			fmt.Print("F")
-			failures = append(failures, result)
-		}
-
-		if total == len(suite.Tests) {
-			close(results)
-		}
-	}
-
-	if len(failures) > 0 {
-		for index, failure := range failures {
-			fmt.Printf("\n%v) %v", index+1, failure.Desc)
-			fmt.Printf("\n\t%v\n", failure.Error)
-		}
-	} else {
-		fmt.Printf("\nAll tests passed.\n")
 	}
 }
