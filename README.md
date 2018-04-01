@@ -28,7 +28,7 @@ tests:
       - { name: Accept, value: text/html }
 EOT
 
-$> go run main.go
+$> go run main.go suite.yml [optional other test files]
 ```
 
 #### TODO
@@ -37,5 +37,3 @@ $> go run main.go
 * Read request body from files iso plaintext
 * Custom output formatters
 * Add verbose mode (print out the complete request)
-* Allow for multiple test suites (right now `suite.yml` is hardcoded)
-* Provide binary?
