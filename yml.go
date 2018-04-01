@@ -2,41 +2,8 @@ package apitest
 
 import (
 	"fmt"
-	flag "github.com/spf13/pflag"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
 )
-
-type CLI struct {
-	Total  int
-	Suites []TestSuite
-}
-
-func NewCLI() *CLI {
-	c := &CLI{}
-	c.Load()
-
-	return c
-}
-
-func (c *CLI) Load() {
-	flag.Parse()
-	files := flag.Args()
-	var suites []TestSuite
-	var totalTests int
-	for _, filename := range files {
-		suite, err := loadTestSuite(filename)
-		if err != nil {
-			fmt.Printf("test suite load error %v", err)
-		} else {
-			suites = append(suites, suite)
-			totalTests += len(suite.Tests)
-		}
-	}
-
-	c.Suites = suites
-	c.Total = totalTests
-}
 
 type yamlSuite struct {
 	Config struct {
@@ -54,14 +21,9 @@ type yamlSuite struct {
 	} `yaml:"tests"`
 }
 
-func loadTestSuite(filename string) (TestSuite, error) {
-	yamlFile, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return TestSuite{}, err
-	}
-
+func NewTestSuiteFromYaml(name string, yamlFile []byte) (TestSuite, error) {
 	suite := yamlSuite{}
-	err = yaml.Unmarshal(yamlFile, &suite)
+	err := yaml.Unmarshal(yamlFile, &suite)
 	if err != nil {
 		return TestSuite{}, err
 	}
@@ -87,5 +49,5 @@ func loadTestSuite(filename string) (TestSuite, error) {
 		})
 	}
 
-	return TestSuite{Name: filename, Tests: tests}, nil
+	return TestSuite{Name: name, Tests: tests}, nil
 }

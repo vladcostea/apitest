@@ -6,19 +6,28 @@ import (
 
 type App struct{}
 
-func (app App) Run(c *CLI) {
+func totalTests(suites []TestSuite) (total int) {
+	for _, suite := range suites {
+		total += len(suite.Tests)
+	}
+
+	return
+}
+
+func (app *App) Run(suites []TestSuite) {
 	results := make(chan TestResult)
 	var failures []TestResult
-	var total int
+	var testsRan int
+	total := totalTests(suites)
 
-	for _, suite := range c.Suites {
-		for _, t := range suite.Tests {
+	for _, s := range suites {
+		for _, t := range s.Tests {
 			go t.Run(results)
 		}
 	}
 
 	for result := range results {
-		total = total + 1
+		testsRan = testsRan + 1
 		if result.Passed {
 			fmt.Print(".")
 		} else {
@@ -26,7 +35,7 @@ func (app App) Run(c *CLI) {
 			failures = append(failures, result)
 		}
 
-		if total == c.Total {
+		if testsRan == total {
 			close(results)
 		}
 	}
