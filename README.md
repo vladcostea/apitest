@@ -37,3 +37,5 @@ $> go run main.go suite.yml [optional other test files]
 * Read request body from files iso plaintext
 * Custom output formatters
 * Add verbose mode (print out the complete request)
+* Exit with different status codes based on test results
+* Assert on response body
