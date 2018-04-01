@@ -6,5 +6,5 @@ import (
 
 func main() {
 	app := apitest.App{}
-	app.Run()
+	app.Run(apitest.NewCLI())
 }

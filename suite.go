@@ -8,28 +8,23 @@ import (
 	"strings"
 )
 
-type Header struct {
+type header struct {
 	Name  string
 	Value string
 }
 
 type TestCase struct {
-	Desc    string
-	Path    string
-	Json    string
-	Status  int
-	Headers []Header
-}
-
-type TestSuiteConfig struct {
-	BaseURI string `yaml:"base_uri"`
+	Label   string
+	URL     string
+	Body    string
 	Auth    string
-	Headers []Header
+	Status  int
+	Headers []header
 }
 
 type TestSuite struct {
-	TestSuiteConfig `yaml:"config"`
-	Tests           []TestCase
+	Name  string
+	Tests []TestCase
 }
 
 type TestResult struct {
@@ -38,33 +33,27 @@ type TestResult struct {
 	Passed bool
 }
 
-func (c TestSuiteConfig) HasAuth() bool {
+func (c TestCase) HasAuth() bool {
 	return len(c.Auth) > 0
 }
 
-func (c TestSuiteConfig) BasicAuth() (string, string) {
+func (c TestCase) BasicAuth() (string, string) {
 	auth := strings.Split(c.Auth, ":")
 	return auth[0], auth[1]
 }
 
-func (c TestSuiteConfig) URL(path string) string {
-	return fmt.Sprintf("%v%v", c.BaseURI, path)
-}
-
-func (t TestCase) Run(c TestSuiteConfig, results chan TestResult) {
-	req, err := http.NewRequest("POST", c.URL(t.Path), bytes.NewBuffer([]byte(t.Json)))
+func (t TestCase) Run(results chan TestResult) {
+	req, err := http.NewRequest("POST", t.URL, bytes.NewBuffer([]byte(t.Body)))
 	if err != nil {
 		panic(err)
 	}
-	for _, h := range c.Headers {
-		req.Header.Set(h.Name, h.Value)
-	}
+
 	for _, h := range t.Headers {
 		req.Header.Set(h.Name, h.Value)
 	}
-	if c.HasAuth() {
-		user, pass := c.BasicAuth()
-		req.SetBasicAuth(user, pass)
+
+	if t.HasAuth() {
+		req.SetBasicAuth(t.BasicAuth())
 	}
 
 	client := &http.Client{}
@@ -79,7 +68,7 @@ func (t TestCase) Run(c TestSuiteConfig, results chan TestResult) {
 		errorMessage := fmt.Sprintf("[FAIL] wanted %v got %v %v", t.Status, resp.StatusCode, string(body))
 		results <- TestResult{
 			Passed: false,
-			Desc:   t.Desc,
+			Desc:   t.Label,
 			Error:  errorMessage,
 		}
 	} else {
